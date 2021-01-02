@@ -4,20 +4,18 @@ from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampl
 import albumentations as A
 import pandas as pd
 
-from .dataset import hmTrainDataset, hmTestDataset
+from .dataset import cassavaTrain, cassavaTest
 from .transforms import get_train_transform, get_valid_transform
 
 def build_train_loader(cfg):
 
     df = pd.read_csv(
-        os.path.join(cfg.DATASET.TILE_DIR, 'coord.csv')
+        os.path.join(cfg.DATA_DIR, 'train_folds.csv')
     )
 
-    train_ids = set(df['image_id']) - set(cfg.DATASET.VALID_ID)
     train_transform = get_train_transform(cfg)
-    train_dataset = hmTrainDataset(
+    train_dataset = cassavaTrain(
         df = df, 
-        img_ids = list(train_ids), 
         cfg = cfg, 
         transforms=train_transform
     )
@@ -36,14 +34,14 @@ def build_valid_loader(cfg):
 
     valid_transform = get_valid_transform(cfg)
     df = pd.read_csv(
-        os.path.join(cfg.DATASET.TILE_DIR, 'coord.csv')
+        os.path.join(cfg.DATA_DIR, 'train_folds.csv')
     )
 
-    valid_dataset = hmTrainDataset(
+    valid_dataset = cassavaTrain(
         df = df, 
-        img_ids = cfg.DATASET.VALID_ID, 
         cfg = cfg, 
-        transforms=valid_transform
+        transforms=valid_transform,
+        train=False
     )
 
     valid_loader = DataLoader(
