@@ -50,7 +50,7 @@ _C.SOLVER.NUM_EPOCHS = 60
 _C.SOLVER.WARMUP_EPOCHS = 10
 
 #'Adam', SGD, Ranger, RangerQH (quasi hyperbolic momentum), RangerALR (adaptive learning rate)
-_C.SOLVER.OPTIMIZER = 'RangerALR'
+_C.SOLVER.OPTIMIZER = 'Ranger'
 _C.SOLVER.SCHEDULER = 'CosineAnnealingLR'
 _C.SOLVER.SCHEDULER_MODE = 'max'
 _C.SOLVER.LR = 1e-03
@@ -69,7 +69,7 @@ _C.SOLVER.T_MAX = 6 #PER COSINEANNEALINGLR
 
 #Model config
 _C.MODEL = CN()
-_C.MODEL.NAME = 'resnet34'
-_C.MODEL.PRETRAINING = 'imagenet'
-_C.MODEL.ATTENTION = True
+_C.MODEL.NAME = 'seresnet34'
+_C.MODEL.PRETRAINING = True
+_C.MODEL.NUM_CLASSES_OUT = 5
 _C.MODEL.CHECKPOINT_PATH = '/home/giorgio/Scrivania/Kaggle/hubmap/experiments/resnet34/2020-12-30/unet_best.ckpt'
