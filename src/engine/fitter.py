@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 import pandas as pd
 import numpy as np
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, accuracy_score
 from tqdm import tqdm
 import cv2
 
@@ -15,6 +15,9 @@ from timm.loss.cross_entropy import LabelSmoothingCrossEntropy
 from .average import AverageMeter
 from models.optimizer import make_optimizer
 from models.scheduler import make_scheduler
+
+#TODO: provare ad usare questo
+from models.loss import bi_tempered_logistic_loss
 
 class Fitter:
     def __init__(self, model, cfg, train_loader, val_loader, logger, exp_path):
@@ -70,7 +73,7 @@ class Fitter:
                 time: {(time.time() - t):.3f}'''
             )
 
-            valid_loss, valid_auc = self.validate()
+            valid_loss, valid_auc, valid_acc = self.validate()
 
             if self.cfg.SOLVER.SCHEDULER == 'ReduceLROnPlateau':
                 self.scheduler.step(valid_loss)
@@ -81,18 +84,20 @@ class Fitter:
                 f'''[RESULT]: Val. Epoch: {self.epoch},
                 validation_loss: {valid_loss.avg:.5f},
                 Auc Score: {valid_auc:.5f}, 
+                Accuracy score: {valid_acc:.5f},
                 time: {(time.time() - t):.3f}'''
             )
             self.epoch += 1
-            if valid_auc > self.val_score:
+            if valid_acc > self.val_score:
                 self.model.eval()
                 self.save(
-                    os.path.join(self.experiment_path, f'unet_best.ckpt'))
-                self.val_score = valid_auc
+                    os.path.join(self.experiment_path, f'{self.epoch}{self.cfg.MODEL.NAME}_best.ckpt'))
+                self.val_score = valid_acc
 
     def train_one_epoch(self):
         self.model.train()
         summary_loss = AverageMeter()
+        
         t = time.time()
 
         train_loader = tqdm(self.train_loader, total=len(self.train_loader), desc='Training')
@@ -132,6 +137,7 @@ class Fitter:
 
         y_true = []
         softmax_preds = []
+        preds = []
         for step, (imgs, labels, idxs) in enumerate(val_loader):
 
             targets = labels.to(self.cfg.DEVICE)
@@ -146,7 +152,7 @@ class Fitter:
             summary_loss.update(loss, batch_size)
 
             softmax = torch.nn.Softmax(dim=1)(logits).detach().cpu().numpy()
-            preds = np.argmax(a=softmax, axis=1)
+            prediction_class = np.argmax(a=softmax, axis=1)
 
             val_loader.set_description(
                 f'Valid Step {step}/{len(self.val_loader)}, ' + \
@@ -157,19 +163,26 @@ class Fitter:
 
             y_true.append(labels.detach().cpu().numpy())
             softmax_preds.append(softmax)
+            preds.append(prediction_class)
 
         y_true = np.concatenate(y_true, axis=0)
         softmax_preds = np.concatenate(softmax_preds, axis=0)
+        preds = np.concatenate(preds, axis=0)
 
         val_auc = roc_auc_score(
             y_true=y_true, 
             y_score=softmax_preds,
             multi_class='ovr'
         )
+
+        val_acc = accuracy_score(
+            y_true=y_true,
+            y_pred=preds
+        )
         self.logger.info(f'''
-            [VALID]Epoch {self.epoch}: validation AUC {val_auc}
+            [VALID]Epoch {self.epoch}: validation AUC {val_auc}, validation ACC {val_acc}
         ''')
-        return summary_loss, val_auc
+        return summary_loss, val_auc, val_acc
 
     def save(self, path):
         self.model.eval()
