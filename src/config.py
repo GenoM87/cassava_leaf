@@ -52,6 +52,7 @@ _C.VALID_LOADER.NUM_WORKERS = 4
 #solver config
 _C.SOLVER = CN()
 _C.SOLVER.NUM_EPOCHS = 60
+_C.SOLVER.ACC_GRADIENT = 2
 _C.SOLVER.WARMUP_EPOCHS = 10
 
 #'Adam', SGD, Ranger, RangerQH (quasi hyperbolic momentum), RangerALR (adaptive learning rate)
