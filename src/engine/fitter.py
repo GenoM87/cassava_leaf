@@ -97,7 +97,7 @@ class Fitter:
             if valid_acc > self.val_score:
                 self.model.eval()
                 self.save(
-                    os.path.join(self.experiment_path, f'{self.epoch}{self.cfg.MODEL.NAME}_best.ckpt'))
+                    os.path.join(self.experiment_path, f'{self.cfg.MODEL.NAME}_fld{self.cfg.DATASET.VALID_FOLD}.ckpt'))
                 self.val_score = valid_acc
 
     def train_one_epoch(self):

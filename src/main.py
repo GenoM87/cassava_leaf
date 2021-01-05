@@ -24,24 +24,28 @@ logger = logging.getLogger()
 
 if __name__ == "__main__":
     
-    model = CustomNet(
-        cfg
-    )
-    train_loader = build_train_loader(cfg)
-    valid_loader = build_valid_loader(cfg)
+    for fld in range(cfg.DATASET.N_SPLITS):
+        model = CustomNet(
+            cfg
+        )
 
-    engine = Fitter(
-        model=model,
-        cfg=cfg,
-        train_loader=train_loader,
-        val_loader=valid_loader,
-        logger=logger,
-        exp_path=path_exp
-    )
+        cfg.DATASET.VALID_FOLD = fld
+        
+        train_loader = build_train_loader(cfg)
+        valid_loader = build_valid_loader(cfg)
 
-    if cfg.RESUME_CHECKPOINT:
-        engine.load(path=cfg.CHECKPOINT_PATH)
+        engine = Fitter(
+            model=model,
+            cfg=cfg,
+            train_loader=train_loader,
+            val_loader=valid_loader,
+            logger=logger,
+            exp_path=path_exp
+        )
 
-    engine.train()
+        if cfg.RESUME_CHECKPOINT:
+            engine.load(path=cfg.CHECKPOINT_PATH)
+
+        engine.train()
     #engine.final_check()
     #engine.compute_shift()
