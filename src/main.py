@@ -3,7 +3,7 @@ from pathlib import Path
 
 from engine.fitter import Fitter
 from config import _C as cfg
-from models.create_model import build_model
+from models.create_model import CustomNet
 
 from data_builder import build_valid_loader, build_train_loader
 
@@ -24,7 +24,9 @@ logger = logging.getLogger()
 
 if __name__ == "__main__":
     
-    model = build_model(cfg)
+    model = CustomNet(
+        cfg
+    )
     train_loader = build_train_loader(cfg)
     valid_loader = build_valid_loader(cfg)
 
@@ -37,6 +39,9 @@ if __name__ == "__main__":
         exp_path=path_exp
     )
 
+    if cfg.RESUME_CHECKPOINT:
+        engine.load(path=cfg.CHECKPOINT_PATH)
+
     engine.train()
-    engine.final_check()
+    #engine.final_check()
     #engine.compute_shift()

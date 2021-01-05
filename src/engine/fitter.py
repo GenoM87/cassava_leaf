@@ -17,7 +17,7 @@ from models.optimizer import make_optimizer
 from models.scheduler import make_scheduler
 
 #TODO: provare ad usare questo
-from models.loss import bi_tempered_logistic_loss
+from models.loss import BiTemperedLogisticLoss
 
 class Fitter:
     def __init__(self, model, cfg, train_loader, val_loader, logger, exp_path):
@@ -30,7 +30,13 @@ class Fitter:
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.logger = logger
-        self.criterion = LabelSmoothingCrossEntropy()
+
+        #LOSS FN
+        self.criterion = BiTemperedLogisticLoss(
+            t1=self.cfg.SOLVER.BIT_T1,
+            t2=self.cfg.SOLVER.BIT_T2,
+            smoothing=self.cfg.SOLVER.SMOOTHING_LOSS
+        )#LabelSmoothingCrossEntropy()
 
         self.optimizer = make_optimizer(
             self.model, self.cfg

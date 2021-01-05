@@ -15,7 +15,10 @@ def get_train_transform(cfg):
         #  A.HueSaturationValue(10,15,10, p=cfg.DATASET.P_HUE_SATURATION),
         #  A.CLAHE(clip_limit=2, p=cfg.DATASET.P_CLAHE),
         #  #A.RandomBrightnessContrast(p=cfg.DATASET.P_RANDOM_BRIGHTNESS),            
-        #], p=0.3),
+        #], p=0.3),A.RandomResizedCrop()
+        #Heavy oug
+        A.RandomResizedCrop(cfg.DATASET.IMG_HEIGHT, cfg.DATASET.IMG_HEIGHT, p=cfg.DATASET.P_RANDOMRESCROP),
+        A.CenterCrop(cfg.DATASET.IMG_HEIGHT, cfg.DATASET.IMG_HEIGHT, p=cfg.DATASET.P_CENTERCROP),
         A.Cutout(num_holes=cfg.DATASET.NUM_HOLES, p=cfg.DATASET.P_CUTOUT),
         A.HorizontalFlip(cfg.DATASET.P_HORIZONATL_FLIP),
         A.VerticalFlip(cfg.DATASET.P_VERTICAL_FLIP),

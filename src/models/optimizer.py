@@ -28,15 +28,19 @@ def make_optimizer(model, cfg):
     elif cfg.SOLVER.OPTIMIZER=='Ranger':
         return Ranger(
             model.parameters(),
-            lr=cfg.SOLVER.LR
+            lr=cfg.SOLVER.LR,
+            weight_decay=cfg.SOLVER.WEIGHT_DECAY
             )
     elif cfg.SOLVER.OPTIMIZER=='RangerQH':
         return RangerQH(
             model.parameters(),
-            lr=cfg.SOLVER.LR
+            lr=cfg.SOLVER.LR,
+            weight_decay=cfg.SOLVER.WEIGHT_DECAY
             )
     elif cfg.SOLVER.OPTIMIZER=='RangerALR':
         return RangerVA(
             model.parameters(),
-            lr=cfg.SOLVER.LR
+            lr=cfg.SOLVER.LR,
+            weight_decay=cfg.SOLVER.WEIGHT_DECAY,
+            amsgrad=cfg.SOLVER.AMSGRAD
             )

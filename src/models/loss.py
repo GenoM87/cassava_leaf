@@ -1,6 +1,7 @@
-#Per ora uso quelli integrati in timm
+#Per ora uso quelli integrati in timm + bitemperred https://www.kaggle.com/piantic/train-cassava-starter-using-various-loss-funcs
 
 import torch
+import torch.nn as nn
 
 def log_t(u, t):
     """Compute log_t for `u'."""
@@ -234,3 +235,20 @@ def bi_tempered_logistic_loss(activations,
         return loss_values.sum()
     if reduction == 'mean':
         return loss_values.mean()
+
+class BiTemperedLogisticLoss(nn.Module): 
+    def __init__(self, t1, t2, smoothing=0.0): 
+        super(BiTemperedLogisticLoss, self).__init__() 
+        self.t1 = t1
+        self.t2 = t2
+        self.smoothing = smoothing
+    def forward(self, logit_label, truth_label):
+        loss_label = bi_tempered_logistic_loss(
+            logit_label, truth_label,
+            t1=self.t1, t2=self.t2,
+            label_smoothing=self.smoothing,
+            reduction='none'
+        )
+        
+        loss_label = loss_label.mean()
+        return loss_label

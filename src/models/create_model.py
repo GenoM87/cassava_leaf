@@ -1,11 +1,13 @@
 import timm
+import torch.nn as nn
 
-def build_model(cfg):
+class CustomNet(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        self.model = timm.create_model(cfg.MODEL.NAME, pretrained=cfg.MODEL.PRETRAINING)
+        n_features = self.model.fc.in_features
+        self.model.fc = nn.Linear(n_features, cfg.MODEL.NUM_CLASSES_OUT)
 
-    model = timm.create_model(
-        model_name=cfg.MODEL.NAME,
-        pretrained=cfg.MODEL.PRETRAINING,
-        num_classes=cfg.MODEL.NUM_CLASSES_OUT #5 Classi, è hardcoded nel codice
-    )
-
-    return model
+    def forward(self, x):
+        x = self.model(x)
+        return x
