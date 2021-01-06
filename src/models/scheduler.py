@@ -18,7 +18,8 @@ def make_scheduler(optimizer, cfg):
             optimizer=optimizer,
             mode=cfg.SOLVER.SCHEDULER_MODE,
             factor=cfg.SOLVER.SCHEDULER_REDFACT,
-            patience=cfg.SOLVER.SCHEDULER_PATIENCE
+            patience=cfg.SOLVER.SCHEDULER_PATIENCE,
+            min_lr=cfg.SOLVER.MIN_LR
         )
     if cfg.SOLVER.SCHEDULER == 'CosineAnnealingLR':    
         scheduler = lr_scheduler.CosineAnnealingLR(
