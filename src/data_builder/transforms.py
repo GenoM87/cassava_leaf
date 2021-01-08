@@ -5,24 +5,24 @@ from albumentations.pytorch import ToTensorV2
 
 def get_train_transform(cfg):
 
-    return A.Compose([
-        #A.OneOf([
-        #  A.OpticalDistortion(p=cfg.DATASET.P_OPTICAL_DIST),
-        #  A.GridDistortion(p=cfg.DATASET.P_GRID_DIST),
-        #  A.IAAPiecewiseAffine(p=cfg.DATASET.P_PIECEWISE_AFFINE),
-        #], p=0.3),
-        #A.OneOf([
-        #  A.HueSaturationValue(10,15,10, p=cfg.DATASET.P_HUE_SATURATION),
-        #  A.CLAHE(clip_limit=2, p=cfg.DATASET.P_CLAHE),
-        #  #A.RandomBrightnessContrast(p=cfg.DATASET.P_RANDOM_BRIGHTNESS),            
-        #], p=0.3),A.RandomResizedCrop()
-        #Heavy oug
+    return A.Compose([       
         A.RandomResizedCrop(cfg.DATASET.IMG_HEIGHT, cfg.DATASET.IMG_HEIGHT, p=cfg.DATASET.P_RANDOMRESCROP),
-        A.CenterCrop(cfg.DATASET.IMG_HEIGHT, cfg.DATASET.IMG_HEIGHT, p=cfg.DATASET.P_CENTERCROP),
+        A.CoarseDropout(p=cfg.DATASET.P_COARSEDROP),
         A.Cutout(num_holes=cfg.DATASET.NUM_HOLES, p=cfg.DATASET.P_CUTOUT),
         A.HorizontalFlip(cfg.DATASET.P_HORIZONATL_FLIP),
         A.VerticalFlip(cfg.DATASET.P_VERTICAL_FLIP),
-        A.RandomRotate90(cfg.DATASET.P_RANDOM_ROTATE),
+        A.HueSaturationValue(
+            hue_shift_limit=0.2, 
+            sat_shift_limit=0.2, 
+            val_shift_limit=0.2, 
+            p=0.5
+        ),
+        A.RandomBrightnessContrast(
+            brightness_limit=(-0.1,0.1), 
+            contrast_limit=(-0.1, 0.1), 
+            p=0.5
+        ),
+        A.Transpose(cfg.DATASET.P_TRASPOSE),
         A.ShiftScaleRotate(
             shift_limit=0.0625, scale_limit=0.2, rotate_limit=15, p=cfg.DATASET.P_SHIFT_SCALE, 
             border_mode=cv2.BORDER_REFLECT
@@ -38,6 +38,7 @@ def get_train_transform(cfg):
 
 def get_valid_transform(cfg):
     return A.Compose([
+        A.CenterCrop(height=cfg.DATASET.IMG_HEIGHT, width=cfg.DATASET.IMG_WIDTH, p=1.),
         A.Resize(height=cfg.DATASET.IMG_HEIGHT, width=cfg.DATASET.IMG_WIDTH),
         A.Normalize(
             mean=[0.42984136, 0.49624753, 0.3129598], 

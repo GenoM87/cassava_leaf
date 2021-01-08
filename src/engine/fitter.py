@@ -9,6 +9,8 @@ import cv2
 
 import torch
 import torch.nn.functional as F
+from torch.cuda.amp import autocast, GradScaler
+
 import albumentations as A
 from timm.loss.cross_entropy import LabelSmoothingCrossEntropy
 
@@ -44,9 +46,10 @@ class Fitter:
 
         self.scheduler = make_scheduler(
             self.optimizer, 
-            self.cfg,
-            self.train_loader
+            self.cfg
         )
+
+        self.scaler = GradScaler()
 
         self.epoch = 0
         self.val_score = 0
@@ -58,18 +61,18 @@ class Fitter:
         #Start training loop
         for epoch in range(self.epoch, self.cfg.SOLVER.NUM_EPOCHS):
 
-            if epoch < self.cfg.SOLVER.WARMUP_EPOCHS:
-                #Create increasing lr
-                lr = np.linspace(
-                    start=self.cfg.SOLVER.MIN_LR, 
-                    stop=self.cfg.SOLVER.LR, 
-                    num=self.cfg.SOLVER.WARMUP_EPOCHS
-                )
+            #if epoch < self.cfg.SOLVER.WARMUP_EPOCHS:
+            #    #Create increasing lr
+            #    lr = np.linspace(
+            #        start=self.cfg.SOLVER.MIN_LR, 
+            #        stop=self.cfg.SOLVER.LR, 
+            #        num=self.cfg.SOLVER.WARMUP_EPOCHS
+            #    )
 
-                for g in self.optimizer.param_groups:
-                    g['lr'] = lr[epoch]
-                
-                self.logger.info(f'[TRAIN]WARMUP: Increasing learning rate to {lr[epoch]}')
+            #    for g in self.optimizer.param_groups:
+            #        g['lr'] = lr[epoch]
+            #    
+            #    self.logger.info(f'[TRAIN]WARMUP: Increasing learning rate to {lr[epoch]}')
 
             t = time.time()
             summary_loss = self.train_one_epoch()
@@ -82,7 +85,7 @@ class Fitter:
             valid_loss, valid_auc, valid_acc = self.validate()
 
             if self.cfg.SOLVER.SCHEDULER == 'ReduceLROnPlateau':
-                self.scheduler.step(valid_loss)
+                self.scheduler.step(valid_loss.avg)
             else:
                 self.scheduler.step()
 
@@ -110,18 +113,21 @@ class Fitter:
 
         for step, (imgs, labels, idxs) in enumerate(train_loader):
             
-            self.optimizer.zero_grad()
             batch_size = imgs.shape[0]
 
             imgs = imgs.to(self.cfg.DEVICE)
             targets = labels.to(self.cfg.DEVICE)
 
-            logits = self.model(imgs)
+            with autocast():
+                logits = self.model(imgs)
+                loss = self.criterion(logits, targets)
             
-            loss = self.criterion(logits, targets)
-
-            loss.backward()
-            self.optimizer.step()
+            #self.scaler.scale(loss / self.iters_to_accumulate).backward() per gradient accumulation
+            self.scaler.scale(loss).backward()
+            
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+            self.optimizer.zero_grad()
 
             summary_loss.update(loss.detach().cpu().item(), batch_size)
 

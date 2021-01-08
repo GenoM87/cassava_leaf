@@ -7,7 +7,7 @@ def make_scheduler(optimizer, cfg):
         scheduler = lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer, 
             T_0=cfg.SOLVER.SCHEDULER_T0, 
-            T_mult=cfg.SOLVER.T_MUL, 
+            T_mult=cfg.SOLVER.SCHEDULER_T_MUL, 
             eta_min=cfg.SOLVER.MIN_LR, 
             last_epoch=-1
         )
