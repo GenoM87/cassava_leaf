@@ -118,16 +118,25 @@ class Fitter:
             imgs = imgs.to(self.cfg.DEVICE)
             targets = labels.to(self.cfg.DEVICE)
 
-            with autocast():
+            if self.cfg.FP16:
+                with autocast():
+                    logits = self.model(imgs)
+                    loss = self.criterion(logits, targets)
+                
+                #self.scaler.scale(loss / self.iters_to_accumulate).backward() per gradient accumulation
+                self.scaler.scale(loss).backward()
+                
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer.zero_grad()
+            
+            else:
                 logits = self.model(imgs)
                 loss = self.criterion(logits, targets)
-            
-            #self.scaler.scale(loss / self.iters_to_accumulate).backward() per gradient accumulation
-            self.scaler.scale(loss).backward()
-            
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-            self.optimizer.zero_grad()
+                
+                loss.backward()                
+                self.optimizer.step()
+                self.optimizer.zero_grad()
 
             summary_loss.update(loss.detach().cpu().item(), batch_size)
 

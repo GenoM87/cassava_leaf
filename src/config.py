@@ -10,10 +10,11 @@ _C.PROJECT_DIR = str(pathlib.Path(__file__).parent.parent.absolute())
 _C.DATA_DIR = os.path.join(_C.PROJECT_DIR, 'data')
 _C.DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 _C.RANDOM_STATE = 2021
+_C.FP16 = False
 
 #Load model
 _C.RESUME_CHECKPOINT = False
-_C.CHECKPOINT_PATH = '/home/giorgio/Scrivania/Kaggle/hubmap/experiments/resnet34/2020-12-30/unet_best.ckpt'
+_C.CHECKPOINT_PATH = '/home/giorgio/Scrivania/Kaggle/cassava_leaf/experiments/tf_efficientnet_b3_ns/2021-01-08/tf_efficientnet_b3_ns_fld0.ckpt'
 
 #Dataset config
 _C.DATASET = CN()
@@ -21,8 +22,9 @@ _C.DATASET.N_SPLITS = 5
 
  #DATASET AUGMENTATION
 _C.DATASET.VALID_FOLD = 0
-_C.DATASET.IMG_HEIGHT = 512 
-_C.DATASET.IMG_WIDTH = 512
+_C.DATASET.PSEUDO_THR = 0.8 #PER ACCETTARE UN'IMMAGINE NEL PSEUDO LABELING PRENDO SOLO QUELLE CERTE
+_C.DATASET.IMG_HEIGHT = 320
+_C.DATASET.IMG_WIDTH = 320
 _C.DATASET.H_FLIP_PROB = 0.5
 _C.DATASET.P_OPTICAL_DIST = 0.3
 _C.DATASET.P_GRID_DIST = 0.3
@@ -51,12 +53,12 @@ _C.VALID_LOADER.NUM_WORKERS = 4
 
 #solver config
 _C.SOLVER = CN()
-_C.SOLVER.NUM_EPOCHS = 30
+_C.SOLVER.NUM_EPOCHS = 10
 _C.SOLVER.ACC_GRADIENT = 1 #No gradient accumulation
 _C.SOLVER.WARMUP_EPOCHS = 0
 
 #'Adam', SGD, Ranger, RangerQH (quasi hyperbolic momentum), RangerALR (adaptive learning rate)
-_C.SOLVER.OPTIMIZER = 'Ranger'
+_C.SOLVER.OPTIMIZER = 'Adam'
 _C.SOLVER.SCHEDULER = 'CosineAnnealingWarmRestarts'
 _C.SOLVER.SCHEDULER_MODE = 'min'
 _C.SOLVER.LR = 1e-04

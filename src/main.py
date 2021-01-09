@@ -24,7 +24,7 @@ logger = logging.getLogger()
 
 if __name__ == "__main__":
     
-    for fld in range(cfg.DATASET.N_SPLITS):
+    for fld in range(1, cfg.DATASET.N_SPLITS):
         model = CustomNet(
             cfg
         )

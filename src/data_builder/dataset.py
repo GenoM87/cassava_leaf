@@ -32,7 +32,6 @@ class cassavaTrain(Dataset):
 
         path_img = os.path.join(
             self.cfg.DATA_DIR,
-            'train_images',
             row['image_id']
         )
 
