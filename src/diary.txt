@@ -1,0 +1,25 @@
+9-1-2021: prediction su fold 0: LB 0.861 con TTAx4 img_size: 320
+9-1-2021: prediction con TTAx9 con nuova pipeline: LB 0.61
+
+9-1-2021: allenamento con pseudo labeling dataset 2019 per 10 epoch su 5 folds
+-----
+10-1-21:prediction su 5 folds con img_size:320 FATTO LB: 0.877
+-----
+DA FARE: allenamento e prediction su 5 folds con img_size:512
+-> prediction con fold 1: LB 0.871
+-> prediction con 5 folds: LB 0.883
+-----
+DA FARE: provare: freezare il batchnorm layer con:
+"for module in model.modules():
+    # print(module)
+    if isinstance(module, nn.BatchNorm2d):
+        if hasattr(module, 'weight'):
+            module.weight.requires_grad_(False)
+        if hasattr(module, 'bias'):
+            module.bias.requires_grad_(False)
+        module.eval()"
+
+-----
+DA FARE: allenamento di resnext50 con img_size: 512
+-----
+DA FARE: undersampling train e prediction
