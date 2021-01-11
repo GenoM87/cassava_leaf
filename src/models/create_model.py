@@ -16,3 +16,16 @@ class CustomNet(nn.Module):
     def forward(self, x):
         x = self.model(x)
         return x
+
+def freeze_bn(model):
+    
+    for module in model.modules():
+        # print(module)
+        if isinstance(module, nn.BatchNorm2d):
+            if hasattr(module, 'weight'):
+                module.weight.requires_grad_(False)
+            if hasattr(module, 'bias'):
+                module.bias.requires_grad_(False)
+            module.eval()
+
+    return model

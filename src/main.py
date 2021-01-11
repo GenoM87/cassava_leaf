@@ -3,7 +3,7 @@ from pathlib import Path
 
 from engine.fitter import Fitter
 from config import _C as cfg
-from models.create_model import CustomNet
+from models.create_model import CustomNet, freeze_bn
 
 from data_builder import build_valid_loader, build_train_loader
 
@@ -24,10 +24,15 @@ logger = logging.getLogger()
 
 if __name__ == "__main__":
     
-    for fld in range(1, cfg.DATASET.N_SPLITS):
+    for fld in range(0, cfg.DATASET.N_SPLITS):
+    #for fld in [0, 4]:
         model = CustomNet(
             cfg
         )
+
+        #freeze batchnorm layer
+        if cfg.SOLVER.FREEZE_BN:
+            model = freeze_bn(model)
 
         cfg.DATASET.VALID_FOLD = fld
         
