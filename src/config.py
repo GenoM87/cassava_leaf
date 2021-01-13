@@ -10,7 +10,7 @@ _C.PROJECT_DIR = str(pathlib.Path(__file__).parent.parent.absolute())
 _C.DATA_DIR = os.path.join(_C.PROJECT_DIR, 'data')
 _C.DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 _C.RANDOM_STATE = 2021
-_C.FP16 = False
+_C.FP16 = True
 
 #Load model
 _C.RESUME_CHECKPOINT = False
@@ -45,21 +45,21 @@ _C.DATASET.P_TRASPOSE = 0.5
 #Loader config
 _C.TRAIN_LOADER = CN()
 _C.TRAIN_LOADER.BATCH_SIZE = 8
-_C.TRAIN_LOADER.NUM_WORKERS = 4
+_C.TRAIN_LOADER.NUM_WORKERS = 2
 
 _C.VALID_LOADER = CN()
 _C.VALID_LOADER.BATCH_SIZE = 16
-_C.VALID_LOADER.NUM_WORKERS = 4
+_C.VALID_LOADER.NUM_WORKERS = 2
 
 #solver config
 _C.SOLVER = CN()
 _C.SOLVER.NUM_EPOCHS = 10
-_C.SOLVER.ACC_GRADIENT = 1 #No gradient accumulation
+_C.SOLVER.ACC_GRADIENT = 2 #No gradient accumulation
 _C.SOLVER.WARMUP_EPOCHS = 0
 _C.SOLVER.FREEZE_BN = True #False Freeze batchnorm layer
 
 #'Adam', SGD, Ranger, RangerQH (quasi hyperbolic momentum), RangerALR (adaptive learning rate)
-_C.SOLVER.OPTIMIZER = 'Adam'
+_C.SOLVER.OPTIMIZER = 'Ranger'
 _C.SOLVER.SCHEDULER = 'CosineAnnealingWarmRestarts'
 _C.SOLVER.SCHEDULER_MODE = 'min'
 _C.SOLVER.LR = 1e-04

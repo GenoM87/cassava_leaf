@@ -5,11 +5,11 @@
 -----
 10-1-21:prediction su 5 folds con img_size:320 FATTO LB: 0.877
 -----
-DA FARE: allenamento e prediction su 5 folds con img_size:512
+10-1-21: allenamento e prediction su 5 folds con img_size:512
 -> prediction con fold 1: LB 0.871
 -> prediction con 5 folds: LB 0.883
 -----
-DA FARE: provare: freezare il batchnorm layer con:
+11-1-21: provare: freezare il batchnorm layer con:
 "for module in model.modules():
     # print(module)
     if isinstance(module, nn.BatchNorm2d):
@@ -18,7 +18,12 @@ DA FARE: provare: freezare il batchnorm layer con:
         if hasattr(module, 'bias'):
             module.bias.requires_grad_(False)
         module.eval()"
-
+al 10mo epoch la valid accouracy stava salendo: continuare ad allenare?
+-> 11-1-21 prediction con fold 0 LB: 0.881
+-> 12-1-21 prediction con 5 fold LB:0.889
+-----
+DA FARE: Allenamento con Ranger:
+---> prediction su singolo fold: LB: 0.880
 -----
 DA FARE: allenamento di resnext50 con img_size: 512
 -----
