@@ -7,7 +7,7 @@ from yacs.config import CfgNode as CN
 
 _C = CN()
 _C.PROJECT_DIR = str(pathlib.Path(__file__).parent.parent.absolute())
-_C.DATA_DIR = os.path.join(_C.PROJECT_DIR, 'data')
+_C.DATA_DIR = '../input/cassava-leaf-disease-classification/'
 _C.DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 _C.RANDOM_STATE = 2021
 _C.FP16 = True
