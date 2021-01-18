@@ -18,8 +18,11 @@ from .average import AverageMeter
 from models.optimizer import make_optimizer
 from models.scheduler import make_scheduler
 
-#TODO: provare ad usare questo
 from models.loss import BiTemperedLogisticLoss
+
+#TODO: test di SAM
+from sam.sam import SAM
+from pytorch_ranger import Ranger
 
 class Fitter:
     def __init__(self, model, cfg, train_loader, val_loader, logger, exp_path):
@@ -39,9 +42,18 @@ class Fitter:
             t2=self.cfg.SOLVER.BIT_T2,
             smoothing=self.cfg.SOLVER.SMOOTHING_LOSS
         )#LabelSmoothingCrossEntropy()
+        
+        #self.base_optimizer = make_optimizer(
+        #    self.model, self.cfg
+        #)
 
-        self.optimizer = make_optimizer(
-            self.model, self.cfg
+        self.base_optimizer = Ranger
+
+        self.optimizer = SAM(
+            self.model.parameters(),
+            self.base_optimizer,
+            lr=self.cfg.SOLVER.LR,
+            weight_decay=self.cfg.SOLVER.WEIGHT_DECAY
         )
 
         self.scheduler = make_scheduler(
@@ -135,8 +147,13 @@ class Fitter:
                 loss = self.criterion(logits, targets)
                 
                 loss.backward()                
-                self.optimizer.step()
-                self.optimizer.zero_grad()
+                self.optimizer.first_step(zero_grad=True)
+                #self.optimizer.zero_grad()
+                
+                logits = self.model(imgs)
+                loss = self.criterion(logits, targets)
+                loss.backward()
+                self.optimizer.second_step(zero_grad=True)
 
             summary_loss.update(loss.detach().cpu().item(), batch_size)
 
