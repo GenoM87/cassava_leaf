@@ -9,7 +9,11 @@ import cv2
 
 import torch
 import torch.nn.functional as F
-from torch.cuda.amp import autocast, GradScaler
+
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import NeptuneLogger
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 import albumentations as A
 from timm.loss.cross_entropy import LabelSmoothingCrossEntropy
@@ -17,6 +21,8 @@ from timm.loss.cross_entropy import LabelSmoothingCrossEntropy
 from .average import AverageMeter
 from models.optimizer import make_optimizer
 from models.scheduler import make_scheduler
+from models.create_model import CustomNet, freeze_bn
+from data_builder.builder import build_train_loader, build_valid_loader
 
 from models.loss import BiTemperedLogisticLoss
 
@@ -24,225 +30,100 @@ from models.loss import BiTemperedLogisticLoss
 from sam.sam import SAM
 from pytorch_ranger import Ranger
 
-class Fitter:
-    def __init__(self, model, cfg, train_loader, val_loader, logger, exp_path):
-        
-        self.experiment_path =  exp_path
-        os.makedirs(self.experiment_path, exist_ok=True)
+class cassavaModel(pl.LightningModule):
 
-        self.model = model.to(cfg.DEVICE)
-        self.cfg = cfg
-        self.train_loader = train_loader
-        self.val_loader = val_loader
-        self.logger = logger
+    def __init__(self, cfg):
+        super().__init__()
 
-        #LOSS FN
-        self.criterion = BiTemperedLogisticLoss(
-            t1=self.cfg.SOLVER.BIT_T1,
-            t2=self.cfg.SOLVER.BIT_T2,
-            smoothing=self.cfg.SOLVER.SMOOTHING_LOSS
-        )#LabelSmoothingCrossEntropy()
-        
-        #self.base_optimizer = make_optimizer(
-        #    self.model, self.cfg
-        #)
-
-        self.base_optimizer = Ranger
-
-        self.optimizer = SAM(
-            self.model.parameters(),
-            self.base_optimizer,
-            lr=self.cfg.SOLVER.LR,
-            weight_decay=self.cfg.SOLVER.WEIGHT_DECAY
+        model = CustomNet(
+            cfg
         )
 
-        self.scheduler = make_scheduler(
-            self.optimizer, 
+        if cfg.SOLVER.FREEZE_BN:
+            model = freeze_bn(model)
+
+        self.model = model
+        del model
+
+        self.train_accuracy = pl.metrics.Accuracy()
+        self.valid_accuracy = pl.metrics.Accuracy()
+        self.loss_fn = BiTemperedLogisticLoss(
+            t1=cfg.SOLVER.BIT_T1,
+            t2=cfg.SOLVER.BIT_T2,
+            smoothing=cfg.SOLVER.SMOOTHING_LOSS 
+        )
+        self.cfg = cfg
+
+    def forward(self, x):
+        return self.model(x)
+      
+    def loss(self, logits, labels):
+        return self.loss_fn(logits, labels)
+
+    def training_step(self, batch, batch_idx):
+        x, y, idxs = batch
+        y_hat = self.model(x)
+        loss = self.loss(y_hat, y)
+        self.log(
+            'loss', 
+            loss
+        )
+        self.log(
+            'train_acc_step', 
+            self.train_accuracy(y_hat.argmax(dim=-1), y),
+            on_step=True, 
+            on_epoch=False
+        )
+        return {'loss': loss}
+    
+    def validation_step(self, batch, batch_idx):
+        x, y, idxs = batch
+        y_hat = self.model(x)
+        val_loss = self.loss(y_hat, y)
+        self.log('val_loss', val_loss)
+        self.log(
+            'val_acc_step', 
+            self.valid_accuracy(y_hat.argmax(dim=-1), y),
+            on_step=True, 
+            on_epoch=False
+        )
+        return {'val_loss': val_loss}
+
+    def training_epoch_end(self, outputs):
+        train_loss_mean = torch.stack([output["loss"] for output in outputs]).mean()
+        train_acc_mean = self.train_accuracy.compute()
+        self.log_dict(
+            {"train_loss": train_loss_mean, 
+            "train_acc": train_acc_mean, 
+            "step": self.current_epoch}
+        )
+
+    def validation_epoch_end(self, outputs):
+        val_loss_mean = torch.stack([output["val_loss"] for output in outputs]).mean()
+        valid_acc_mean = self.valid_accuracy.compute()
+        log_dict = {"val_loss": val_loss_mean, "val_acc": valid_acc_mean}
+        self.log_dict(log_dict, prog_bar=True)
+        self.log_dict({"step": self.current_epoch})
+
+    def configure_optimizers(self):
+        optimizer = make_optimizer(
+            self.model, 
             self.cfg
         )
-
-        self.scaler = GradScaler()
-
-        self.epoch = 0
-        self.val_score = 0
-
-        self.logger.info(f'Avvio training {datetime.datetime.now()} con i seguenti parametri:')
-        self.logger.info(self.cfg)
-
-    def train(self):
-        #Start training loop
-        for epoch in range(self.epoch, self.cfg.SOLVER.NUM_EPOCHS):
-
-            #if epoch < self.cfg.SOLVER.WARMUP_EPOCHS:
-            #    #Create increasing lr
-            #    lr = np.linspace(
-            #        start=self.cfg.SOLVER.MIN_LR, 
-            #        stop=self.cfg.SOLVER.LR, 
-            #        num=self.cfg.SOLVER.WARMUP_EPOCHS
-            #    )
-
-            #    for g in self.optimizer.param_groups:
-            #        g['lr'] = lr[epoch]
-            #    
-            #    self.logger.info(f'[TRAIN]WARMUP: Increasing learning rate to {lr[epoch]}')
-
-            t = time.time()
-            summary_loss = self.train_one_epoch()
-            self.logger.info(
-                f'''[RESULT]: Train. Epoch: {self.epoch},
-                summary_loss: {summary_loss.avg:.5f}, 
-                time: {(time.time() - t):.3f}'''
-            )
-
-            valid_loss, valid_auc, valid_acc = self.validate()
-
-            if self.cfg.SOLVER.SCHEDULER == 'ReduceLROnPlateau':
-                self.scheduler.step(valid_loss.avg)
-            else:
-                self.scheduler.step()
-
-            self.logger.info(
-                f'''[RESULT]: Val. Epoch: {self.epoch},
-                validation_loss: {valid_loss.avg:.5f},
-                Auc Score: {valid_auc:.5f}, 
-                Accuracy score: {valid_acc:.5f},
-                time: {(time.time() - t):.3f}'''
-            )
-            self.epoch += 1
-            if valid_acc > self.val_score:
-                self.model.eval()
-                self.save(
-                    os.path.join(self.experiment_path, f'{self.cfg.MODEL.NAME}_fld{self.cfg.DATASET.VALID_FOLD}.ckpt'))
-                self.val_score = valid_acc
-
-    def train_one_epoch(self):
-        self.model.train()
-        summary_loss = AverageMeter()
-        
-        t = time.time()
-
-        train_loader = tqdm(self.train_loader, total=len(self.train_loader), desc='Training')
-
-        for step, (imgs, labels, idxs) in enumerate(train_loader):
-            
-            batch_size = imgs.shape[0]
-
-            imgs = imgs.to(self.cfg.DEVICE)
-            targets = labels.to(self.cfg.DEVICE)
-
-            if self.cfg.FP16:
-                with autocast():
-                    logits = self.model(imgs)
-                    loss = self.criterion(logits, targets)
-                
-                #self.scaler.scale(loss / self.iters_to_accumulate).backward() per gradient accumulation
-                self.scaler.scale(loss).backward()
-                
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer.zero_grad()
-            
-            else:
-                logits = self.model(imgs)
-                loss = self.criterion(logits, targets)
-                
-                loss.backward()                
-                self.optimizer.first_step(zero_grad=True)
-                #self.optimizer.zero_grad()
-                
-                logits = self.model(imgs)
-                loss = self.criterion(logits, targets)
-                loss.backward()
-                self.optimizer.second_step(zero_grad=True)
-
-            summary_loss.update(loss.detach().cpu().item(), batch_size)
-
-            train_loader.set_description(
-                f'Train Step {step}/{len(self.train_loader)}, ' + \
-                f'Learning rate {self.optimizer.param_groups[0]["lr"]}, ' + \
-                f'summary_loss: {summary_loss.avg:.5f}, ' + \
-                f'time: {(time.time() - t):.3f}'
-            )
-
-        return summary_loss
-
-    def validate(self):
-        self.model.eval()
-        t = time.time()
-        summary_loss = AverageMeter()
-
-        val_loader = tqdm(self.val_loader, total=len(self.val_loader), desc='Valid')
-
-        y_true = []
-        softmax_preds = []
-        preds = []
-        for step, (imgs, labels, idxs) in enumerate(val_loader):
-
-            targets = labels.to(self.cfg.DEVICE)
-            imgs = imgs.to(self.cfg.DEVICE)
-            batch_size = imgs.shape[0]
-
-            with torch.no_grad():
-                logits = self.model(imgs)
-
-                loss = self.criterion(logits, targets)
-
-            summary_loss.update(loss, batch_size)
-
-            softmax = torch.nn.Softmax(dim=1)(logits).detach().cpu().numpy()
-            prediction_class = np.argmax(a=softmax, axis=1)
-
-            val_loader.set_description(
-                f'Valid Step {step}/{len(self.val_loader)}, ' + \
-                f'Learning rate {self.optimizer.param_groups[0]["lr"]}, ' + \
-                f'summary_loss: {summary_loss.avg:.5f}, ' + \
-                f'time: {(time.time() - t):.3f}'
-            )
-
-            y_true.append(labels.detach().cpu().numpy())
-            softmax_preds.append(softmax)
-            preds.append(prediction_class)
-
-        y_true = np.concatenate(y_true, axis=0)
-        softmax_preds = np.concatenate(softmax_preds, axis=0)
-        preds = np.concatenate(preds, axis=0)
-
-        val_auc = roc_auc_score(
-            y_true=y_true, 
-            y_score=softmax_preds,
-            multi_class='ovr'
+        scheduler = make_scheduler(
+            optimizer, 
+            self.cfg,
         )
+        return {
+        'optimizer': optimizer,
+        'lr_scheduler': scheduler,
+        'monitor': 'val_loss'
+        }
 
-        val_acc = accuracy_score(
-            y_true=y_true,
-            y_pred=preds
-        )
-        self.logger.info(f'''
-            [VALID]Epoch {self.epoch}: validation AUC {val_auc}, validation ACC {val_acc}
-        ''')
-        return summary_loss, val_auc, val_acc
+    def train_dataloader(self):
+        loader = build_train_loader(self.cfg)
+        return loader
 
-    def save(self, path):
-        self.model.eval()
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict(),
-            'val_score': self.val_score,
-            'epoch': self.epoch,
-        }, path)
-
-    def save_model(self, path):
-        self.model.eval()
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'val_score': self.val_score,
-        }, path)
-
-    def load(self, path):
-        checkpoint = torch.load(path)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        self.val_score = checkpoint['val_score']
-        self.epoch = checkpoint['epoch'] + 1
+    def val_dataloader(self):
+        loader = build_valid_loader(self.cfg)
+        return loader

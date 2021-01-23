@@ -1,0 +1,43 @@
+program: src/main.py
+method: random
+metric:
+  name: val_acc
+  goal: maximize
+parameters:
+  SOLVER.ACC_GRADIENT:
+    distribution: int_uniform
+    min: 1
+    max: 4
+  SOLVER.FREEZE_BN:
+    distribution: categorical
+    values:
+      - True
+      - False
+  SOLVER.OPTIMIZER:
+    distribution: categorical
+    values:
+      ["Adam",
+      "SGD",
+      "Ranger"]
+  SOLVER.SCHEDULER:
+    distribution: categorical
+    values:
+      ["CosineAnnealingWarmRestarts",
+      "ReduceLROnPlateau",
+      "CosineAnnealingLR"]
+  SOLVER.LR:
+    distribution: log_uniform
+    min: -10
+    max: -3
+  SOLVER.SMOOTHING_LOSS:
+    distribution: uniform
+    max: 0.4
+    min: 0
+  SOLVER.BIT_T1:
+    distribution: uniform
+    max: 0.9
+    min: 0.4
+  SOLVER.BIT_T2:
+    distribution: uniform
+    max: 2.1
+    min: 1.1

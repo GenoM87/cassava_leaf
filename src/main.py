@@ -1,7 +1,12 @@
 import sys, os, time, logging, datetime
 from pathlib import Path
 
-from engine.fitter import Fitter
+import wandb
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import NeptuneLogger, WandbLogger
+
+from engine.fitter import cassavaModel
 from config import _C as cfg
 from models.create_model import CustomNet, freeze_bn
 
@@ -22,35 +27,41 @@ path_logger = os.path.join(
 logging.basicConfig(filename=path_logger, level=logging.DEBUG)
 logger = logging.getLogger()
 
+wandb.init(config=cfg)
+sweep_cfg = wandb.config
+
 if __name__ == "__main__":
     
-    #for fld in range(3, cfg.DATASET.N_SPLITS):
-    for fld in [0]:
-        model = CustomNet(
+    for fld in range(0, cfg.DATASET.N_SPLITS):
+    #for fld in [0]:
+        cfg.DATASET.VALID_FOLD = fld
+        
+        model = cassavaModel(
             cfg
         )
 
-        #freeze batchnorm layer
-        if cfg.SOLVER.FREEZE_BN:
-            model = freeze_bn(model)
-
-        cfg.DATASET.VALID_FOLD = fld
-        
-        train_loader = build_train_loader(cfg)
-        valid_loader = build_valid_loader(cfg)
-
-        engine = Fitter(
-            model=model,
-            cfg=cfg,
-            train_loader=train_loader,
-            val_loader=valid_loader,
-            logger=logger,
-            exp_path=path_exp
+        wblogger = WandbLogger(
+            name='cassava_test',
+            project='cassava_kaggle'
         )
 
-        if cfg.RESUME_CHECKPOINT:
-            engine.load(path=cfg.CHECKPOINT_PATH)
+        checkpoint = ModelCheckpoint(
+            dirpath = path_exp,
+            save_weights_only=True,
+            monitor = 'val_acc',
+            filename='cassava-{epoch:02d}-{val_acc:.4f}',
+            mode='max',
+        )
 
-        engine.train()
-    #engine.final_check()
-    #engine.compute_shift()
+        trainer = pl.Trainer(
+            #tpu_cores=8,
+            gpus = 1,
+            #precision=16,
+            accumulate_grad_batches=cfg.SOLVER.ACC_GRADIENT,
+            max_epochs=cfg.SOLVER.NUM_EPOCHS,
+            logger= wblogger,
+            default_root_dir=path_exp,
+            callbacks = [checkpoint],
+        )
+
+        trainer.fit(model)
