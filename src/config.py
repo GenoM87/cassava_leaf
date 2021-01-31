@@ -1,5 +1,4 @@
-import pathlib
-import os
+import pathlib, os, random
 import torch
 from yacs.config import CfgNode as CN
 
@@ -9,12 +8,12 @@ _C = CN()
 _C.PROJECT_DIR = str(pathlib.Path(__file__).parent.parent.absolute())
 _C.DATA_DIR = os.path.join(_C.PROJECT_DIR, 'data')
 _C.DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-_C.RANDOM_STATE = 2021
+_C.RANDOM_STATE = random.randint(1, 3000)
 _C.FP16 = False
 
 #Load model
 _C.RESUME_CHECKPOINT = False
-_C.CHECKPOINT_PATH = '/home/giorgio/Scrivania/Kaggle/cassava_leaf/experiments/tf_efficientnet_b3_ns/2021-01-08/tf_efficientnet_b3_ns_fld0.ckpt'
+_C.CHECKPOINT_PATH = '/home/giorgio/Scrivania/Kaggle/cassava_leaf/experiments/tf_efficientnet_b3_ns/2021-01-30/tf_efficientnet_b3_ns_fld0.ckpt'
 
 #Dataset config
 _C.DATASET = CN()
@@ -23,6 +22,7 @@ _C.DATASET.N_SPLITS = 5
  #DATASET AUGMENTATION
 _C.DATASET.VALID_FOLD = 0
 _C.DATASET.PSEUDO_THR = 0.8 #PER ACCETTARE UN'IMMAGINE NEL PSEUDO LABELING PRENDO SOLO QUELLE CERTE
+_C.DATASET.SAMPLER = 'weighted' # flat, weighted
 _C.DATASET.IMG_HEIGHT = 480 
 _C.DATASET.IMG_WIDTH = 480
 _C.DATASET.H_FLIP_PROB = 0.5
@@ -60,6 +60,7 @@ _C.SOLVER.FREEZE_BN = True #False Freeze batchnorm layer
 
 #'Adam', SGD, Ranger, RangerQH (quasi hyperbolic momentum), RangerALR (adaptive learning rate)
 _C.SOLVER.OPTIMIZER = 'Adam'
+_C.SOLVER.OPTIMIZER_SAM = False
 _C.SOLVER.SCHEDULER = 'CosineAnnealingWarmRestarts'
 _C.SOLVER.SCHEDULER_MODE = 'min'
 _C.SOLVER.LR = 1e-04
@@ -83,6 +84,6 @@ _C.SOLVER.SCHEDULER_T_MAX = 6 #PER COSINEANNEALINGLR
 
 #Model config
 _C.MODEL = CN()
-_C.MODEL.NAME = 'resnext50_32x4d'
+_C.MODEL.NAME = 'efficientnet_b3a'
 _C.MODEL.PRETRAINING = True
 _C.MODEL.NUM_CLASSES_OUT = 5

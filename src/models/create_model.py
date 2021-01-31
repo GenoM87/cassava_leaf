@@ -9,6 +9,9 @@ class CustomNet(nn.Module):
         if 'efficientnet' in cfg.MODEL.NAME:
             n_features = self.model.classifier.in_features
             self.model.classifier = nn.Linear(n_features, cfg.MODEL.NUM_CLASSES_OUT)
+        elif 'vit' in cfg.MODEL.NAME:
+            n_features = self.model.head.in_features
+            self.model.head = nn.Linear(n_features, cfg.MODEL.NUM_CLASSES_OUT)
         else:
             n_features = self.model.fc.in_features
             self.model.fc = nn.Linear(n_features, cfg.MODEL.NUM_CLASSES_OUT)

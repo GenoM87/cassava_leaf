@@ -29,9 +29,8 @@ def get_train_transform(cfg):
             border_mode=cv2.BORDER_REFLECT
         ),
         A.Normalize(
-            mean=[0.42984136, 0.49624753, 0.3129598], 
-            std=[0.23297946,0.2358761,0.22365381],
-            always_apply=True
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
         ),
         ToTensorV2()
     ])
@@ -41,9 +40,8 @@ def get_valid_transform(cfg):
         A.Resize(height=cfg.DATASET.IMG_HEIGHT, width=cfg.DATASET.IMG_WIDTH),
         A.CenterCrop(height=cfg.DATASET.IMG_HEIGHT, width=cfg.DATASET.IMG_WIDTH, p=1.),
         A.Normalize(
-            mean=[0.42984136, 0.49624753, 0.3129598], 
-            std=[0.23297946,0.2358761,0.22365381],
-            always_apply=True
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
         ),
         ToTensorV2()
     ])
@@ -52,9 +50,8 @@ def get_test_transform(cfg):
     return A.Compose([
         A.Resize(height=cfg.DATASET.IMG_HEIGHT, width=cfg.DATASET.IMG_WIDTH),
         A.Normalize(
-            mean=[0.42984136, 0.49624753, 0.3129598], 
-            std=[0.23297946,0.2358761,0.22365381],
-            always_apply=True
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
         ),
         ToTensorV2()
     ])

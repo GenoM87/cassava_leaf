@@ -1,3 +1,5 @@
 {
-    "python.pythonPath": "/home/giorgio/Scrivania/Kaggle/kaggleEnv/bin/python3"
+    "python.pythonPath": "/home/giorgio/Scrivania/Kaggle/kaggleEnv/bin/python3",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true
 }

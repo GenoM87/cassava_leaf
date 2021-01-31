@@ -1,6 +1,7 @@
 import os
+import numpy as np
 
-from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler
+from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler, WeightedRandomSampler
 import albumentations as A
 import pandas as pd
 
@@ -13,16 +14,34 @@ def build_train_loader(cfg):
         os.path.join(cfg.DATA_DIR, 'train_folds.csv')
     )
 
+    train_df = df[df['fold']!=cfg.DATASET.VALID_FOLD]
+    # Weighted random sampler
+    counts = np.bincount(train_df['label'])
+    labels_weights = 1. / counts
+    weights = labels_weights[train_df['label']]
+    
+    # Dataset creation
     train_transform = get_train_transform(cfg)
     train_dataset = cassavaTrain(
         df = df, 
         cfg = cfg, 
         transforms=train_transform
     )
+        
+    assert cfg.DATASET.SAMPLER in ['weighted', 'flat']
+    
+    # Select sapling method: weighted, random, sequential...
+    if cfg.DATASET.SAMPLER=='weighted':
+        sampler = WeightedRandomSampler(
+            weights, 
+            len(weights)
+        )
+    else:
+        sampler = RandomSampler(train_dataset)
 
     train_loader = DataLoader(
         dataset=train_dataset,
-        sampler=RandomSampler(train_dataset),
+        sampler=sampler,
         drop_last=True,
         batch_size=cfg.TRAIN_LOADER.BATCH_SIZE,
         num_workers=cfg.TRAIN_LOADER.NUM_WORKERS

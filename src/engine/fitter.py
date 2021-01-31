@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch.cuda.amp import autocast, GradScaler
 
 import albumentations as A
+import apex.amp as amp
 from timm.loss.cross_entropy import LabelSmoothingCrossEntropy
 
 from .average import AverageMeter
@@ -43,28 +44,29 @@ class Fitter:
             smoothing=self.cfg.SOLVER.SMOOTHING_LOSS
         )#LabelSmoothingCrossEntropy()
         
-        #self.base_optimizer = make_optimizer(
-        #    self.model, self.cfg
-        #)
+        if self.cfg.SOLVER.OPTIMIZER_SAM:
+            self.base_optimizer = Ranger
 
-        self.base_optimizer = Ranger
-
-        self.optimizer = SAM(
-            self.model.parameters(),
-            self.base_optimizer,
-            lr=self.cfg.SOLVER.LR,
-            weight_decay=self.cfg.SOLVER.WEIGHT_DECAY
-        )
+            self.optimizer = SAM(
+                self.model.parameters(),
+                self.base_optimizer,
+                lr=self.cfg.SOLVER.LR,
+                weight_decay=self.cfg.SOLVER.WEIGHT_DECAY
+            )
+        else:
+            self.optimizer = make_optimizer(
+                self.model, self.cfg)
 
         self.scheduler = make_scheduler(
             self.optimizer, 
             self.cfg
         )
 
-        self.scaler = GradScaler()
-
         self.epoch = 0
         self.val_score = 0
+
+        if self.cfg.FP16:
+            self.model, self.optimizer = amp.initialize(self.model, self.optimizer)
 
         self.logger.info(f'Avvio training {datetime.datetime.now()} con i seguenti parametri:')
         self.logger.info(self.cfg)
@@ -130,30 +132,32 @@ class Fitter:
             imgs = imgs.to(self.cfg.DEVICE)
             targets = labels.to(self.cfg.DEVICE)
 
-            if self.cfg.FP16:
-                with autocast():
-                    logits = self.model(imgs)
-                    loss = self.criterion(logits, targets)
-                
-                #self.scaler.scale(loss / self.iters_to_accumulate).backward() per gradient accumulation
-                self.scaler.scale(loss).backward()
-                
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer.zero_grad()
-            
+            # SAM optimizer > doppio step
+
+            if self.cfg.SOLVER.OPTIMIZER_SAM:
+
+                # First step for SAM optimizer
+                logits = self.model(imgs)
+                loss = self.criterion(logits, targets)
+                with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                    scaled_loss.backward()
+
+                self.optimizer.first_step(zero_grad=True)
+
+                # Second Step SAM optimizer
+                logits = self.model(imgs)
+                loss = self.criterion(logits, targets)
+                with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                    scaled_loss.backward()
+                self.optimizer.second_step(zero_grad=True)
+
             else:
                 logits = self.model(imgs)
                 loss = self.criterion(logits, targets)
                 
                 loss.backward()                
-                self.optimizer.first_step(zero_grad=True)
-                #self.optimizer.zero_grad()
-                
-                logits = self.model(imgs)
-                loss = self.criterion(logits, targets)
-                loss.backward()
-                self.optimizer.second_step(zero_grad=True)
+                self.optimizer.step()
+                self.optimizer.zero_grad()
 
             summary_loss.update(loss.detach().cpu().item(), batch_size)
 
@@ -245,4 +249,4 @@ class Fitter:
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         self.val_score = checkpoint['val_score']
-        self.epoch = checkpoint['epoch'] + 1
+        self.epoch = checkpoint['epoch'] + 1    
