@@ -49,6 +49,7 @@ def get_valid_transform(cfg):
 def get_test_transform(cfg):
     return A.Compose([
         A.Resize(height=cfg.DATASET.IMG_HEIGHT, width=cfg.DATASET.IMG_WIDTH),
+        A.CenterCrop(height=cfg.DATASET.IMG_HEIGHT, width=cfg.DATASET.IMG_WIDTH, p=1.),
         A.Normalize(
                 mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225],

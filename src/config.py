@@ -8,7 +8,7 @@ _C = CN()
 _C.PROJECT_DIR = str(pathlib.Path(__file__).parent.parent.absolute())
 _C.DATA_DIR = os.path.join(_C.PROJECT_DIR, 'data')
 _C.DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-_C.RANDOM_STATE = random.randint(1, 3000)
+_C.RANDOM_STATE = 2020
 _C.FP16 = False
 
 #Load model
@@ -23,8 +23,8 @@ _C.DATASET.N_SPLITS = 5
 _C.DATASET.VALID_FOLD = 0
 _C.DATASET.PSEUDO_THR = 0.8 #PER ACCETTARE UN'IMMAGINE NEL PSEUDO LABELING PRENDO SOLO QUELLE CERTE
 _C.DATASET.SAMPLER = 'weighted' # flat, weighted
-_C.DATASET.IMG_HEIGHT = 480 
-_C.DATASET.IMG_WIDTH = 480
+_C.DATASET.IMG_HEIGHT = 512 
+_C.DATASET.IMG_WIDTH = 512
 _C.DATASET.H_FLIP_PROB = 0.5
 _C.DATASET.P_OPTICAL_DIST = 0.3
 _C.DATASET.P_GRID_DIST = 0.3
@@ -84,6 +84,6 @@ _C.SOLVER.SCHEDULER_T_MAX = 6 #PER COSINEANNEALINGLR
 
 #Model config
 _C.MODEL = CN()
-_C.MODEL.NAME = 'efficientnet_b3a'
+_C.MODEL.NAME = 'tf_efficientnet_b3_ns'
 _C.MODEL.PRETRAINING = True
 _C.MODEL.NUM_CLASSES_OUT = 5

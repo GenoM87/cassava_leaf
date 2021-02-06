@@ -6,7 +6,7 @@ import albumentations as A
 import pandas as pd
 
 from .dataset import cassavaTrain, cassavaTest
-from .transforms import get_train_transform, get_valid_transform
+from .transforms import get_train_transform, get_valid_transform, get_test_transform
 
 def build_train_loader(cfg):
 
@@ -60,6 +60,30 @@ def build_valid_loader(cfg):
         df = df, 
         cfg = cfg, 
         transforms=valid_transform,
+        train=False
+    )
+
+    valid_loader = DataLoader(
+        dataset=valid_dataset,
+        sampler=SequentialSampler(valid_dataset),
+        drop_last=False,
+        batch_size=cfg.VALID_LOADER.BATCH_SIZE,
+        num_workers=cfg.VALID_LOADER.NUM_WORKERS
+    )
+
+    return valid_loader
+
+def build_test_loader(cfg):
+
+    test_transform = get_test_transform(cfg)
+    df = pd.read_csv(
+        os.path.join(cfg.DATA_DIR, 'train_folds.csv')
+    )
+
+    valid_dataset = cassavaTrain(
+        df = df, 
+        cfg = cfg, 
+        transforms=test_transform,
         train=False
     )
 
